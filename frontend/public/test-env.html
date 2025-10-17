@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Environment Test</title>
+</head>
+<body>
+    <h1>Environment Variables Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        // This will show what environment variables are available
+        const output = document.getElementById('output');
+        output.innerHTML = `
+            <p>REACT_APP_CONTRACT_ADDRESS: ${process.env.REACT_APP_CONTRACT_ADDRESS || 'undefined'}</p>
+            <p>REACT_APP_TOKEN_ADDRESS: ${process.env.REACT_APP_TOKEN_ADDRESS || 'undefined'}</p>
+            <p>REACT_APP_NETWORK_ID: ${process.env.REACT_APP_NETWORK_ID || 'undefined'}</p>
+            <p>REACT_APP_NETWORK_NAME: ${process.env.REACT_APP_NETWORK_NAME || 'undefined'}</p>
+        `;
+    </script>
+</body>
+</html>

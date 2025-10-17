@@ -21,28 +21,38 @@ export const Web3Provider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Contract addresses (these would be updated after deployment)
-  const CONTRACT_ADDRESS =
-    process.env.REACT_APP_CONTRACT_ADDRESS ||
-    "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-  const TOKEN_ADDRESS =
-    process.env.REACT_APP_TOKEN_ADDRESS ||
-    "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+  // Contract addresses - Force Sepolia addresses
+  const CONTRACT_ADDRESS = "0xe53E7A0377BDAe41d045e8FFB74d54F2dd28A607";
+  const TOKEN_ADDRESS = "0x2D1380724794d34bAdb6Ec33D53D850B3A6978F3";
+
+  // Debug logging
+  console.log("Environment variables:", {
+    CONTRACT_ADDRESS: process.env.REACT_APP_CONTRACT_ADDRESS,
+    TOKEN_ADDRESS: process.env.REACT_APP_TOKEN_ADDRESS,
+    NETWORK_ID: process.env.REACT_APP_NETWORK_ID,
+    NETWORK_NAME: process.env.REACT_APP_NETWORK_NAME,
+  });
 
   // Contract ABIs (simplified for demo - in production, these would be imported from artifacts)
   const CONTRACT_ABI = [
-    "function createProperty(string title, string description, string location, uint256 totalValue, uint256 minInvestment, uint256 maxInvestment, uint256 targetFunding, uint256 deadline) external returns (uint256)",
-    "function invest(uint256 propertyId) external payable",
-    "function getProperty(uint256 propertyId) external view returns (uint256 id, address owner, string title, string description, string location, uint256 totalValue, uint256 minInvestment, uint256 maxInvestment, uint256 currentFunding, uint256 targetFunding, uint256 deadline, bool isActive, bool isFunded, bool isCompleted, uint256 totalInvestors)",
+    "function createProperty(string _title, string _description, string _location, uint256 _totalValue, uint256 _minInvestment, uint256 _maxInvestment, uint256 _targetFunding, uint256 _deadline) external returns (uint256)",
+    "function invest(uint256 _propertyId) external payable",
+    "function getProperty(uint256 _propertyId) external view returns (uint256 id, address owner, string title, string description, string location, uint256 totalValue, uint256 minInvestment, uint256 maxInvestment, uint256 currentFunding, uint256 targetFunding, uint256 deadline, bool isActive, bool isFunded, bool isCompleted, uint256 totalInvestors)",
     "function getTotalProperties() external view returns (uint256)",
-    "function getUserInvestments(address user) external view returns (uint256[])",
-    "function getUserProperties(address user) external view returns (uint256[])",
-    "function completeProperty(uint256 propertyId) external",
-    "function withdrawInvestment(uint256 investmentId) external",
+    "function getUserInvestments(address _user) external view returns (uint256[])",
+    "function getUserProperties(address _user) external view returns (uint256[])",
+    "function completeProperty(uint256 _propertyId) external",
+    "function withdrawInvestment(uint256 _investmentId) external",
+    "function getPropertyInvestors(uint256 _propertyId) external view returns (address[])",
+    "function getUserInvestment(uint256 _propertyId, address _investor) external view returns (uint256)",
+    "function getTotalInvestments() external view returns (uint256)",
+    "function withdrawPlatformFees() external",
+    "function updatePlatformFee(uint256 _newFee) external",
     "event PropertyCreated(uint256 indexed propertyId, address indexed owner, string title, uint256 targetFunding)",
     "event InvestmentMade(uint256 indexed investmentId, uint256 indexed propertyId, address indexed investor, uint256 amount)",
     "event PropertyFunded(uint256 indexed propertyId, uint256 totalFunding)",
     "event PropertyCompleted(uint256 indexed propertyId, address indexed owner)",
+    "event InvestmentWithdrawn(uint256 indexed investmentId, address indexed investor, uint256 amount)",
   ];
 
   const TOKEN_ABI = [
@@ -69,7 +79,41 @@ export const Web3Provider = ({ children }) => {
         return;
       }
 
+      // Check network
+      const network = await provider.getNetwork();
+      const expectedNetworkId = "11155111"; // Sepolia
+
+      console.log("Network check:", {
+        currentChainId: network.chainId.toString(),
+        expectedChainId: expectedNetworkId,
+        isCorrectNetwork: network.chainId.toString() === expectedNetworkId,
+      });
+
+      if (network.chainId.toString() !== expectedNetworkId) {
+        toast.error(`Please switch to Sepolia testnet in MetaMask`);
+
+        // Try to switch network
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [
+              { chainId: `0x${parseInt(expectedNetworkId).toString(16)}` },
+            ],
+          });
+        } catch (switchError) {
+          console.error("Failed to switch network:", switchError);
+        }
+        return;
+      }
+
       const signer = await provider.getSigner();
+
+      // Create contracts (skip validation for now)
+      console.log("Creating contracts with addresses:", {
+        CONTRACT_ADDRESS,
+        TOKEN_ADDRESS,
+      });
+
       const contract = new ethers.Contract(
         CONTRACT_ADDRESS,
         CONTRACT_ABI,
@@ -80,6 +124,18 @@ export const Web3Provider = ({ children }) => {
         TOKEN_ABI,
         signer
       );
+
+      // Test contract calls (optional - don't fail if they don't work)
+      try {
+        await contract.platformFee();
+        console.log("✅ Contract validation successful");
+      } catch (contractError) {
+        console.warn(
+          "⚠️ Contract validation failed, but continuing:",
+          contractError.message
+        );
+        // Don't fail the connection, just warn
+      }
 
       setAccount(accounts[0]);
       setProvider(provider);
@@ -111,8 +167,11 @@ export const Web3Provider = ({ children }) => {
     try {
       setIsLoading(true);
 
+      // Add a buffer of 1 hour to ensure deadline is always in the future
       const deadline =
-        Math.floor(Date.now() / 1000) + propertyData.days * 24 * 60 * 60;
+        Math.floor(Date.now() / 1000) +
+        parseInt(propertyData.days) * 24 * 60 * 60 +
+        3600;
 
       const tx = await contract.createProperty(
         propertyData.title,
@@ -126,12 +185,26 @@ export const Web3Provider = ({ children }) => {
       );
 
       const receipt = await tx.wait();
-      const event = receipt.logs.find(
-        (log) => log.eventName === "PropertyCreated"
-      );
 
+      // Parse the PropertyCreated event from the transaction receipt
+      const event = receipt.logs.find((log) => {
+        try {
+          const parsedLog = contract.interface.parseLog(log);
+          return parsedLog && parsedLog.name === "PropertyCreated";
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (!event) {
+        throw new Error(
+          "PropertyCreated event not found in transaction receipt"
+        );
+      }
+
+      const parsedEvent = contract.interface.parseLog(event);
       toast.success("Property created successfully!");
-      return event.args.propertyId;
+      return parsedEvent.args.propertyId;
     } catch (error) {
       console.error("Error creating property:", error);
       toast.error("Failed to create property");

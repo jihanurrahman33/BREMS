@@ -1,0 +1,10 @@
+# Frontend Environment Variables for Sepolia Testnet
+# Copy this file to frontend/.env.local and update with your deployed contract addresses
+
+# Contract addresses (update these after deployment to Sepolia)
+REACT_APP_CONTRACT_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3
+REACT_APP_TOKEN_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+
+# Network configuration
+REACT_APP_NETWORK_ID=11155111
+REACT_APP_NETWORK_NAME=sepolia
