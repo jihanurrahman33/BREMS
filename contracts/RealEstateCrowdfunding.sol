@@ -16,6 +16,7 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
         address owner;
         string title;
         string description;
+        string ipfsHash; // Added IPFS hash for image
         string location;
         uint256 totalValue;
         uint256 minInvestment;
@@ -72,6 +73,7 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
     function createProperty(
         string memory _title,
         string memory _description,
+        string memory _ipfsHash,
         string memory _location,
         uint256 _totalValue,
         uint256 _minInvestment,
@@ -93,6 +95,7 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
         newProperty.owner = msg.sender;
         newProperty.title = _title;
         newProperty.description = _description;
+        newProperty.ipfsHash = _ipfsHash;
         newProperty.location = _location;
         newProperty.totalValue = _totalValue;
         newProperty.minInvestment = _minInvestment;
@@ -192,42 +195,7 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
         emit InvestmentWithdrawn(_investmentId, msg.sender, returnAmount);
     }
     
-    function getProperty(uint256 _propertyId) external view propertyExists(_propertyId) returns (
-        uint256 id,
-        address owner,
-        string memory title,
-        string memory description,
-        string memory location,
-        uint256 totalValue,
-        uint256 minInvestment,
-        uint256 maxInvestment,
-        uint256 currentFunding,
-        uint256 targetFunding,
-        uint256 deadline,
-        bool isActive,
-        bool isFunded,
-        bool isCompleted,
-        uint256 totalInvestors
-    ) {
-        Property storage property = properties[_propertyId];
-        return (
-            property.id,
-            property.owner,
-            property.title,
-            property.description,
-            property.location,
-            property.totalValue,
-            property.minInvestment,
-            property.maxInvestment,
-            property.currentFunding,
-            property.targetFunding,
-            property.deadline,
-            property.isActive,
-            property.isFunded,
-            property.isCompleted,
-            property.totalInvestors
-        );
-    }
+
     
     function getPropertyInvestors(uint256 _propertyId) external view propertyExists(_propertyId) returns (address[] memory) {
         return properties[_propertyId].investors;
@@ -269,3 +237,6 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
         revert("Direct payments not accepted");
     }
 } 
+
+
+ 

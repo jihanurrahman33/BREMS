@@ -11,6 +11,7 @@ import {
   CheckCircle,
   Clock,
 } from "lucide-react";
+import { getIPFSUrl } from "../utils/ipfs";
 
 const MyProperties = () => {
   const { isConnected, account, getUserProperties, getProperty } = useWeb3();
@@ -208,9 +209,22 @@ const MyProperties = () => {
                 <div className="flex flex-col lg:flex-row gap-6">
                   {/* Property Image */}
                   <div className="lg:w-1/4">
-                    <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
-                      <Building2 className="h-12 w-12 text-primary-600" />
-                    </div>
+                    {property.ipfsHash ? (
+                      <img
+                        src={getIPFSUrl(property.ipfsHash)}
+                        alt={property.title}
+                        className="w-full h-48 object-cover rounded-lg"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src =
+                            "https://via.placeholder.com/400x300?text=No+Image";
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
+                        <Building2 className="h-12 w-12 text-primary-600" />
+                      </div>
+                    )}
                   </div>
 
                   {/* Property Info */}

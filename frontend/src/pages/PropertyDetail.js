@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useWeb3 } from "../contexts/Web3Context";
+import { getIPFSUrl } from "../utils/ipfs";
 import {
   Building2,
   MapPin,
@@ -179,9 +180,21 @@ const PropertyDetail = () => {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Property Image */}
           <div className="lg:w-1/3">
-            <div className="w-full h-64 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
-              <Building2 className="h-16 w-16 text-primary-600" />
-            </div>
+            {property.ipfsHash ? (
+              <img
+                src={getIPFSUrl(property.ipfsHash)}
+                alt={property.title}
+                className="w-full h-64 object-cover rounded-lg shadow-md"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "https://via.placeholder.com/400x300?text=No+Image";
+                }}
+              />
+            ) : (
+              <div className="w-full h-64 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
+                <Building2 className="h-16 w-16 text-primary-600" />
+              </div>
+            )}
           </div>
 
           {/* Property Info */}

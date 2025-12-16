@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWeb3 } from "../contexts/Web3Context";
+import { uploadToIPFS } from "../utils/ipfs";
 import {
   Building2,
   MapPin,
@@ -22,6 +23,7 @@ const CreateProperty = () => {
     targetFunding: "",
     days: "30",
   });
+  const [file, setFile] = useState(null);
   const [errors, setErrors] = useState({});
 
   const validateForm = () => {
@@ -84,10 +86,21 @@ const CreateProperty = () => {
     }
 
     try {
-      const propertyId = await createProperty(formData);
+      let ipfsHash = "";
+      if (file) {
+        ipfsHash = await uploadToIPFS(file);
+      }
+      
+      const propertyId = await createProperty({ ...formData, ipfsHash });
       navigate(`/properties/${propertyId}`);
     } catch (error) {
       console.error("Error creating property:", error);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
     }
   };
 
@@ -141,6 +154,22 @@ const CreateProperty = () => {
           </h2>
 
           <div className="space-y-4">
+            <div>
+              <label htmlFor="image" className="form-label">
+                Property Image
+              </label>
+              <input
+                type="file"
+                id="image"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="input-field"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Upload an image of the property (optional but recommended)
+              </p>
+            </div>
+
             <div>
               <label htmlFor="title" className="form-label">
                 Property Title *

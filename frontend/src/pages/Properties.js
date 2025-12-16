@@ -10,6 +10,7 @@ import {
   Users,
   Calendar,
 } from "lucide-react";
+import { getIPFSUrl } from "../utils/ipfs";
 
 const Properties = () => {
   const { isConnected, getAllProperties } = useWeb3();
@@ -211,9 +212,22 @@ const Properties = () => {
               className="card hover:shadow-lg transition-shadow duration-200"
             >
               {/* Property Image Placeholder */}
-              <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-4 flex items-center justify-center">
-                <Building2 className="h-12 w-12 text-primary-600" />
-              </div>
+              {property.ipfsHash ? (
+                <img
+                  src={getIPFSUrl(property.ipfsHash)}
+                  alt={property.title}
+                  className="w-full h-48 object-cover rounded-lg mb-4"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src =
+                      "https://via.placeholder.com/400x300?text=No+Image";
+                  }}
+                />
+              ) : (
+                <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-4 flex items-center justify-center">
+                  <Building2 className="h-12 w-12 text-primary-600" />
+                </div>
+              )}
 
               {/* Property Info */}
               <div className="space-y-3">

@@ -21,9 +21,9 @@ export const Web3Provider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Contract addresses - Force Sepolia addresses
-  const CONTRACT_ADDRESS = "0xe53E7A0377BDAe41d045e8FFB74d54F2dd28A607";
-  const TOKEN_ADDRESS = "0x2D1380724794d34bAdb6Ec33D53D850B3A6978F3";
+  // Contract addresses - Local Network
+  const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+  const TOKEN_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
   // Debug logging
   console.log("Environment variables:", {
@@ -35,9 +35,11 @@ export const Web3Provider = ({ children }) => {
 
   // Contract ABIs (simplified for demo - in production, these would be imported from artifacts)
   const CONTRACT_ABI = [
-    "function createProperty(string _title, string _description, string _location, uint256 _totalValue, uint256 _minInvestment, uint256 _maxInvestment, uint256 _targetFunding, uint256 _deadline) external returns (uint256)",
+    "function createProperty(string _title, string _description, string _ipfsHash, string _location, uint256 _totalValue, uint256 _minInvestment, uint256 _maxInvestment, uint256 _targetFunding, uint256 _deadline) external returns (uint256)",
     "function invest(uint256 _propertyId) external payable",
-    "function getProperty(uint256 _propertyId) external view returns (uint256 id, address owner, string title, string description, string location, uint256 totalValue, uint256 minInvestment, uint256 maxInvestment, uint256 currentFunding, uint256 targetFunding, uint256 deadline, bool isActive, bool isFunded, bool isCompleted, uint256 totalInvestors)",
+    "function invest(uint256 _propertyId) external payable",
+    "function properties(uint256) external view returns (uint256 id, address owner, string title, string description, string ipfsHash, string location, uint256 totalValue, uint256 minInvestment, uint256 maxInvestment, uint256 currentFunding, uint256 targetFunding, uint256 deadline, bool isActive, bool isFunded, bool isCompleted, uint256 totalInvestors)",
+    "function getTotalProperties() external view returns (uint256)",
     "function getTotalProperties() external view returns (uint256)",
     "function getUserInvestments(address _user) external view returns (uint256[])",
     "function getUserProperties(address _user) external view returns (uint256[])",
@@ -81,7 +83,7 @@ export const Web3Provider = ({ children }) => {
 
       // Check network
       const network = await provider.getNetwork();
-      const expectedNetworkId = "11155111"; // Sepolia
+      const expectedNetworkId = "31337"; // Localhost Hardhat
 
       console.log("Network check:", {
         currentChainId: network.chainId.toString(),
@@ -90,7 +92,7 @@ export const Web3Provider = ({ children }) => {
       });
 
       if (network.chainId.toString() !== expectedNetworkId) {
-        toast.error(`Please switch to Sepolia testnet in MetaMask`);
+        toast.error(`Please switch to Localhost (Hardhat) in MetaMask`);
 
         // Try to switch network
         try {
@@ -176,6 +178,7 @@ export const Web3Provider = ({ children }) => {
       const tx = await contract.createProperty(
         propertyData.title,
         propertyData.description,
+        propertyData.ipfsHash || "",
         propertyData.location,
         ethers.parseEther(propertyData.totalValue.toString()),
         ethers.parseEther(propertyData.minInvestment.toString()),
@@ -235,23 +238,24 @@ export const Web3Provider = ({ children }) => {
 
   const getProperty = async (propertyId) => {
     try {
-      const property = await contract.getProperty(propertyId);
+      const property = await contract.properties(propertyId);
       return {
         id: property[0].toString(),
         owner: property[1],
         title: property[2],
         description: property[3],
-        location: property[4],
-        totalValue: ethers.formatEther(property[5]),
-        minInvestment: ethers.formatEther(property[6]),
-        maxInvestment: ethers.formatEther(property[7]),
-        currentFunding: ethers.formatEther(property[8]),
-        targetFunding: ethers.formatEther(property[9]),
-        deadline: property[10].toString(),
-        isActive: property[11],
-        isFunded: property[12],
-        isCompleted: property[13],
-        totalInvestors: property[14].toString(),
+        ipfsHash: property[4],
+        location: property[5],
+        totalValue: ethers.formatEther(property[6]),
+        minInvestment: ethers.formatEther(property[7]),
+        maxInvestment: ethers.formatEther(property[8]),
+        currentFunding: ethers.formatEther(property[9]),
+        targetFunding: ethers.formatEther(property[10]),
+        deadline: property[11].toString(),
+        isActive: property[12],
+        isFunded: property[13],
+        isCompleted: property[14],
+        totalInvestors: property[15].toString(),
       };
     } catch (error) {
       console.error("Error getting property:", error);
