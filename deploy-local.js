@@ -22,6 +22,26 @@ async function main() {
   const crowdfundingAddress = await crowdfunding.getAddress();
   console.log("   ✅ RealEstateCrowdfunding deployed to:", crowdfundingAddress);
 
+  // 2.5 Link contracts
+  console.log("\n2.5 Linking contracts...");
+  // Set token address in crowdfunding contract
+  try {
+    const setTokenTx = await crowdfunding.setToken(tokenAddress);
+    await setTokenTx.wait();
+    console.log("   ✅ Token address set in Crowdfunding contract");
+  } catch (error) {
+    console.error("   ❌ Failed to set token address:", error.message);
+  }
+  
+  // Authorize crowdfunding contract to mint tokens
+  try {
+    const authorizeTx = await token.authorizeMinter(crowdfundingAddress);
+    await authorizeTx.wait();
+    console.log("   ✅ Crowdfunding contract authorized as minter");
+  } catch (error) {
+    console.error("   ❌ Failed to authorize minter:", error.message);
+  }
+
   // 3. Save addresses/ABI to frontend
   console.log("\n3. Updating frontend configuration...");
   
@@ -31,9 +51,35 @@ async function main() {
   // or rely on the user to copy them. 
   // However, for this automated flow, I will just print them and I will use the tool to update Web3Context.js myself.
   
-  console.log("\nCopy these values to your frontend configuration (or I will do it for you):");
-  console.log("CONTRACT_ADDRESS:", crowdfundingAddress);
-  console.log("TOKEN_ADDRESS:", tokenAddress);
+  // 3. Save addresses to frontend
+  console.log("\n3. Updating frontend configuration...");
+  const frontendConfigPath = path.join(__dirname, "frontend/src/contexts/Web3Context.js");
+  
+  if (fs.existsSync(frontendConfigPath)) {
+    let configContent = fs.readFileSync(frontendConfigPath, "utf8");
+    
+    // Replace CONTRACT_ADDRESS
+    configContent = configContent.replace(
+      /const CONTRACT_ADDRESS = "0x[a-fA-F0-9]{40}";/,
+      `const CONTRACT_ADDRESS = "${crowdfundingAddress}";`
+    );
+    
+    // Replace TOKEN_ADDRESS
+    configContent = configContent.replace(
+      /const TOKEN_ADDRESS = "0x[a-fA-F0-9]{40}";/,
+      `const TOKEN_ADDRESS = "${tokenAddress}";`
+    );
+    
+    fs.writeFileSync(frontendConfigPath, configContent);
+    console.log("   ✅ Web3Context.js updated with new addresses");
+  } else {
+    console.error("   ❌ Web3Context.js not found at:", frontendConfigPath);
+  }
+
+  console.log("\nDeployment complete! 🚀");
+  console.log("1. Ensure 'npx hardhat node' is running in a separate terminal.");
+  console.log("2. Frontend config has been updated automatically.");
+  console.log("3. Restart your frontend (if running) to pick up changes.");
 
   return { crowdfundingAddress, tokenAddress };
 }

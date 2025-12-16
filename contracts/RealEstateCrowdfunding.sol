@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "./RealEstateToken.sol";
 
 contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
     using Counters for Counters.Counter;
@@ -49,11 +50,14 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
     uint256 public platformFee = 2; // 2% platform fee
     uint256 public totalPlatformFees;
     
+    RealEstateToken public token;
+    
     event PropertyCreated(uint256 indexed propertyId, address indexed owner, string title, uint256 targetFunding);
     event InvestmentMade(uint256 indexed investmentId, uint256 indexed propertyId, address indexed investor, uint256 amount);
     event PropertyFunded(uint256 indexed propertyId, uint256 totalFunding);
     event PropertyCompleted(uint256 indexed propertyId, address indexed owner);
     event InvestmentWithdrawn(uint256 indexed investmentId, address indexed investor, uint256 amount);
+    event TokenRewardPaid(address indexed investor, uint256 amount);
     
     modifier propertyExists(uint256 _propertyId) {
         require(_propertyId > 0 && _propertyId <= _propertyIds.current(), "Property does not exist");
@@ -153,6 +157,12 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
             property.isActive = false;
             emit PropertyFunded(_propertyId, property.currentFunding);
         }
+
+        if (address(token) != address(0)) {
+            uint256 tokenAmount = msg.value * 1000; // 1000 tokens per ETH
+            token.mint(msg.sender, tokenAmount);
+            emit TokenRewardPaid(msg.sender, tokenAmount);
+        }
     }
     
     function completeProperty(uint256 _propertyId) external onlyPropertyOwner(_propertyId) {
@@ -231,6 +241,10 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
     function updatePlatformFee(uint256 _newFee) external onlyOwner {
         require(_newFee <= 10, "Platform fee cannot exceed 10%");
         platformFee = _newFee;
+    }
+
+    function setToken(address _token) external onlyOwner {
+        token = RealEstateToken(_token);
     }
     
     receive() external payable {

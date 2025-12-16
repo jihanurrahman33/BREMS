@@ -371,6 +371,14 @@ const PropertyDetail = () => {
                   Min: ${parseFloat(property.minInvestment).toLocaleString()} |
                   Max: ${parseFloat(property.maxInvestment).toLocaleString()}
                 </p>
+                {investmentAmount && parseFloat(investmentAmount) > 0 && (
+                  <div className="mt-2 p-3 bg-blue-50 rounded-md border border-blue-100">
+                    <p className="text-sm text-blue-800 flex items-center">
+                      <DollarSign className="h-4 w-4 mr-1" />
+                      Estimated Reward: <span className="font-bold ml-1">{(parseFloat(investmentAmount) * 1000).toLocaleString()} RECT</span>
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex space-x-4">
