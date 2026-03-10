@@ -21,25 +21,15 @@ export const Web3Provider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Contract addresses - Local Network
-  const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
-  const TOKEN_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-
-  // Debug logging
-  console.log("Environment variables:", {
-    CONTRACT_ADDRESS: process.env.REACT_APP_CONTRACT_ADDRESS,
-    TOKEN_ADDRESS: process.env.REACT_APP_TOKEN_ADDRESS,
-    NETWORK_ID: process.env.REACT_APP_NETWORK_ID,
-    NETWORK_NAME: process.env.REACT_APP_NETWORK_NAME,
-  });
+  const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS;
+  const TOKEN_ADDRESS = process.env.REACT_APP_TOKEN_ADDRESS;
+  const NETWORK_ID = process.env.REACT_APP_NETWORK_ID || "31337";
 
   // Contract ABIs (simplified for demo - in production, these would be imported from artifacts)
   const CONTRACT_ABI = [
     "function createProperty(string _title, string _description, string _ipfsHash, string _location, uint256 _totalValue, uint256 _minInvestment, uint256 _maxInvestment, uint256 _targetFunding, uint256 _deadline) external returns (uint256)",
     "function invest(uint256 _propertyId) external payable",
-    "function invest(uint256 _propertyId) external payable",
     "function properties(uint256) external view returns (uint256 id, address owner, string title, string description, string ipfsHash, string location, uint256 totalValue, uint256 minInvestment, uint256 maxInvestment, uint256 currentFunding, uint256 targetFunding, uint256 deadline, bool isActive, bool isFunded, bool isCompleted, uint256 totalInvestors)",
-    "function getTotalProperties() external view returns (uint256)",
     "function getTotalProperties() external view returns (uint256)",
     "function getUserInvestments(address _user) external view returns (uint256[])",
     "function getUserProperties(address _user) external view returns (uint256[])",
@@ -83,16 +73,12 @@ export const Web3Provider = ({ children }) => {
 
       // Check network
       const network = await provider.getNetwork();
-      const expectedNetworkId = "31337"; // Localhost Hardhat
-
-      console.log("Network check:", {
-        currentChainId: network.chainId.toString(),
-        expectedChainId: expectedNetworkId,
-        isCorrectNetwork: network.chainId.toString() === expectedNetworkId,
-      });
+      const expectedNetworkId = NETWORK_ID;
 
       if (network.chainId.toString() !== expectedNetworkId) {
-        toast.error(`Please switch to Localhost (Hardhat) in MetaMask`);
+        toast.error(
+          `Please switch to the correct network (Chain ID: ${expectedNetworkId})`,
+        );
 
         // Try to switch network
         try {
@@ -110,34 +96,16 @@ export const Web3Provider = ({ children }) => {
 
       const signer = await provider.getSigner();
 
-      // Create contracts (skip validation for now)
-      console.log("Creating contracts with addresses:", {
-        CONTRACT_ADDRESS,
-        TOKEN_ADDRESS,
-      });
-
       const contract = new ethers.Contract(
         CONTRACT_ADDRESS,
         CONTRACT_ABI,
-        signer
+        signer,
       );
       const tokenContract = new ethers.Contract(
         TOKEN_ADDRESS,
         TOKEN_ABI,
-        signer
+        signer,
       );
-
-      // Test contract calls (optional - don't fail if they don't work)
-      try {
-        await contract.platformFee();
-        console.log("✅ Contract validation successful");
-      } catch (contractError) {
-        console.warn(
-          "⚠️ Contract validation failed, but continuing:",
-          contractError.message
-        );
-        // Don't fail the connection, just warn
-      }
 
       setAccount(accounts[0]);
       setProvider(provider);
@@ -184,7 +152,7 @@ export const Web3Provider = ({ children }) => {
         ethers.parseEther(propertyData.minInvestment.toString()),
         ethers.parseEther(propertyData.maxInvestment.toString()),
         ethers.parseEther(propertyData.targetFunding.toString()),
-        deadline
+        deadline,
       );
 
       const receipt = await tx.wait();
@@ -201,7 +169,7 @@ export const Web3Provider = ({ children }) => {
 
       if (!event) {
         throw new Error(
-          "PropertyCreated event not found in transaction receipt"
+          "PropertyCreated event not found in transaction receipt",
         );
       }
 

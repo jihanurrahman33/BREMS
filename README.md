@@ -1,173 +1,275 @@
-# Real Estate Crowdfunding Platform
+# Blockchain Real Estate Crowdfunding System (BREMS)
 
-A decentralized real estate crowdfunding platform built on Ethereum that allows users to invest in real estate properties through fractional ownership using smart contracts.
+A decentralized real estate crowdfunding platform on Ethereum. Users tokenize properties, invest fractionally via smart contracts, and earn RECT token rewards.
 
-## 🏗️ Features
+## Table of Contents
 
-- **Property Listing**: Property owners can list their real estate for crowdfunding
-- **Fractional Investment**: Investors can invest in properties with small amounts
-- **Smart Contract Security**: All transactions are secured by blockchain technology
-- **Transparent Funding**: Real-time tracking of funding progress
-- **Token Rewards**: Platform token (RECT) for governance and rewards
-- **Modern UI**: Beautiful React frontend with Tailwind CSS
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Smart Contracts](#smart-contracts)
+- [Available Scripts](#available-scripts)
+- [Testing](#testing)
+- [Deploying to Sepolia Testnet](#deploying-to-sepolia-testnet)
+- [Environment Variables](#environment-variables)
+- [Frontend Pages](#frontend-pages)
+- [Backend API](#backend-api)
+- [License](#license)
 
-## 🚀 Quick Start
+## Architecture
 
-### Prerequisites
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────────────┐
+│  React App   │────▶│  Express API │     │  Ethereum Network    │
+│  (frontend/) │     │  (backend/)  │     │  (Hardhat / Sepolia) │
+└──────┬───────┘     └──────────────┘     └──────────┬───────────┘
+       │                                             │
+       │         Smart Contracts (contracts/)        │
+       └─────────────────────────────────────────────┘
+                          │
+                    ┌─────┴─────┐
+                    │   IPFS    │
+                    │ (Pinata)  │
+                    └───────────┘
+```
 
-- Node.js (v16 or higher)
-- npm or yarn
-- MetaMask wallet extension
+- **Smart Contracts** — Solidity contracts compiled and deployed via Hardhat.
+- **Frontend** — React 18 with ethers.js, Tailwind CSS, and React Router.
+- **Backend** — Express.js REST API with rate limiting and security middleware.
+- **IPFS** — Property images pinned to IPFS through Pinata (optional; works with mock hashes in dev).
 
-### Installation
+## Prerequisites
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd real-estate-crowdfunding
-   ```
+| Tool | Version |
+|------|---------|
+| [Node.js](https://nodejs.org/) | >= 18 |
+| [npm](https://www.npmjs.com/) | >= 9 |
+| [MetaMask](https://metamask.io/) | Browser extension |
+| [Git](https://git-scm.com/) | Any recent version |
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+## Getting Started
 
-3. **Install frontend dependencies**
-   ```bash
-   npm run install-frontend
-   ```
+### 1. Clone and install
 
-4. **Compile smart contracts**
-   ```bash
-   npm run compile
-   ```
+```bash
+git clone https://github.com/jihanurrahman33/BREMS.git
+cd BREMS
+npm run install:all
+```
 
-5. **Start local blockchain**
-   ```bash
-   npm run node
-   ```
+This installs root, frontend, and backend dependencies in one command.
 
-6. **Deploy contracts** (in a new terminal)
-   ```bash
-   npm run deploy
-   ```
+### 2. Start the local blockchain
 
-7. **Start frontend** (in a new terminal)
-   ```bash
-   npm run frontend
-   ```
+```bash
+npm run node
+```
 
-8. **Open your browser**
-   Navigate to `http://localhost:3000`
+This starts a Hardhat node at `http://127.0.0.1:8545` (chain ID `31337`) and prints 20 test accounts with private keys. **Keep this terminal running.**
 
-## 📋 Smart Contracts
+### 3. Deploy contracts
+
+Open a **new terminal** in the project root:
+
+```bash
+npm run deploy
+```
+
+This deploys `RealEstateToken` and `RealEstateCrowdfunding` to the local node, links them together, and writes the contract addresses to `frontend/.env.local` automatically.
+
+### 4. Start the app
+
+```bash
+npm run dev
+```
+
+This starts both the backend (port 3001) and the frontend (port 3000) concurrently.
+
+Open [http://localhost:3000](http://localhost:3000).
+
+### 5. Connect MetaMask
+
+1. Open MetaMask and add a custom network:
+
+   | Field | Value |
+   |-------|-------|
+   | Network Name | Hardhat Local |
+   | RPC URL | `http://127.0.0.1:8545` |
+   | Chain ID | `31337` |
+   | Currency Symbol | ETH |
+
+2. Import a test account: copy any private key printed by `npm run node` and import it into MetaMask.
+
+3. Click **Connect Wallet** in the app.
+
+4. **If you restart the Hardhat node**, reset your MetaMask account nonce: Settings > Advanced > Clear activity tab data.
+
+You now have 10,000 test ETH to create properties and invest.
+
+## Project Structure
+
+```
+├── contracts/                # Solidity smart contracts
+│   ├── RealEstateCrowdfunding.sol
+│   └── RealEstateToken.sol
+├── scripts/                  # Deployment scripts
+│   └── deploy.js
+├── test/                     # Contract test suites
+│   ├── RealEstateCrowdfunding.test.js
+│   └── TokenIntegration.test.js
+├── ignition/                 # Hardhat Ignition module (alternative deploy)
+│   └── modules/
+│       └── RealEstateCrowdfunding.js
+├── backend/                  # Express.js API
+│   ├── package.json
+│   └── server.js
+├── frontend/                 # React application
+│   ├── public/
+│   │   └── index.html
+│   └── src/
+│       ├── App.js
+│       ├── index.js
+│       ├── index.css
+│       ├── components/
+│       │   └── Navbar.js
+│       ├── contexts/
+│       │   └── Web3Context.js   # Wallet & contract interactions
+│       ├── pages/
+│       │   ├── Home.js
+│       │   ├── Properties.js
+│       │   ├── PropertyDetail.js
+│       │   ├── CreateProperty.js
+│       │   ├── MyInvestments.js
+│       │   └── MyProperties.js
+│       └── utils/
+│           └── ipfs.js          # Pinata IPFS upload helper
+├── .env.example              # Environment variable template
+├── .gitignore
+├── hardhat.config.js
+├── package.json
+└── README.md                 # This file
+```
+
+## Smart Contracts
 
 ### RealEstateCrowdfunding.sol
-Main contract that handles:
-- Property creation and management
-- Investment processing
-- Funding distribution
-- Platform fee collection
 
-### RealEstateToken.sol
-ERC20 token for platform governance and rewards.
+The core platform contract:
 
-## 🎯 Usage
+- **Property creation** — List properties with title, description, images (IPFS hash), location, funding target, and investment limits.
+- **Investment** — Users invest ETH within min/max bounds. Properties auto-close when fully funded.
+- **Completion & distribution** — Property owners complete funded properties; funds transfer to owner minus a platform fee (default 2%).
+- **Withdrawal** — Investors withdraw returns after property completion.
+- **Security** — OpenZeppelin `ReentrancyGuard` and `Ownable` access control.
 
-### For Property Owners
-1. Connect your MetaMask wallet
-2. Navigate to "Create Property"
-3. Fill in property details and funding requirements
-4. Submit the transaction
-5. Monitor funding progress
-6. Complete property once funded
+### RealEstateToken.sol (RECT)
 
-### For Investors
-1. Connect your MetaMask wallet
-2. Browse available properties
-3. Review property details and investment terms
-4. Invest in properties within the specified limits
-5. Track your investment portfolio
-6. Withdraw returns when properties are completed
+An ERC20 reward token:
 
-## 🧪 Testing
+- 1,000,000 RECT initial supply.
+- Investors receive **1,000 RECT per ETH** invested.
+- Authorized minter pattern — only the crowdfunding contract can mint rewards.
+- Pausable transfers for emergency scenarios.
 
-Run the test suite:
+## Available Scripts
+
+Run from the project root:
+
+| Command | Description |
+|---------|-------------|
+| `npm run install:all` | Install all dependencies (root + frontend + backend) |
+| `npm run node` | Start local Hardhat blockchain node |
+| `npm run compile` | Compile smart contracts |
+| `npm run deploy` | Deploy contracts to local network |
+| `npm run deploy:sepolia` | Deploy contracts to Sepolia testnet |
+| `npm test` | Run smart contract tests |
+| `npm run dev` | Start backend + frontend concurrently |
+| `npm run frontend` | Start frontend only |
+| `npm run backend` | Start backend only |
+| `npm run backend:dev` | Start backend with hot reload |
+| `npm run build` | Build frontend for production |
+
+## Testing
+
 ```bash
 npm test
 ```
 
-Run tests with gas reporting:
-```bash
-REPORT_GAS=true npm test
-```
+Runs the full test suite against an in-memory Hardhat network:
 
-## 📁 Project Structure
+- **RealEstateCrowdfunding.test.js** — Property creation, investment flows, completion, withdrawal, platform fee management.
+- **TokenIntegration.test.js** — Token minting on investment, event emissions.
 
-```
-real-estate-crowdfunding/
-├── contracts/                 # Smart contracts
-│   ├── RealEstateCrowdfunding.sol
-│   └── RealEstateToken.sol
-├── frontend/                  # React application
-│   ├── src/
-│   │   ├── components/        # Reusable components
-│   │   ├── pages/            # Page components
-│   │   ├── contexts/         # React contexts
-│   │   └── utils/            # Utility functions
-│   └── public/               # Static assets
-├── test/                     # Contract tests
-├── ignition/                 # Deployment scripts
-└── hardhat.config.js         # Hardhat configuration
-```
+## Deploying to Sepolia Testnet
 
-## 🔧 Configuration
+1. Copy `.env.example` to `.env` and fill in your values:
 
-### Environment Variables
-Create a `.env` file in the root directory:
-```env
-PRIVATE_KEY=your_private_key_here
-INFURA_URL=your_infura_url_here
-ETHERSCAN_API_KEY=your_etherscan_api_key_here
-```
+   ```bash
+   cp .env.example .env
+   ```
 
-### Contract Addresses
-After deployment, update the contract addresses in `frontend/src/contexts/Web3Context.js`:
-```javascript
-const CONTRACT_ADDRESS = "your_deployed_contract_address";
-const TOKEN_ADDRESS = "your_deployed_token_address";
-```
+   ```env
+   SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_KEY
+   PRIVATE_KEY=your_wallet_private_key_without_0x
+   ETHERSCAN_API_KEY=your_etherscan_api_key
+   ```
 
-## 🛡️ Security
+2. Ensure your wallet has Sepolia ETH (use a [faucet](https://sepoliafaucet.com/)).
 
-- All smart contracts are built with OpenZeppelin libraries
-- Reentrancy protection implemented
-- Access control for admin functions
-- Comprehensive test coverage
-- Gas optimization
+3. Deploy:
 
-## 📈 Roadmap
+   ```bash
+   npm run deploy:sepolia
+   ```
 
-- [ ] Property image uploads
-- [ ] Advanced filtering and search
-- [ ] Mobile app development
-- [ ] Integration with real estate APIs
-- [ ] Secondary market for property tokens
-- [ ] DAO governance implementation
-- [ ] Cross-chain compatibility
+4. Update `frontend/.env.local` with the printed contract addresses and set `REACT_APP_NETWORK_ID=11155111`.
 
-## 🤝 Contributing
+## Environment Variables
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
+### Root `.env` (for contract deployment)
 
-## 📄 License
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SEPOLIA_RPC_URL` | For testnet | Sepolia RPC endpoint |
+| `PRIVATE_KEY` | For testnet | Deployer wallet private key |
+| `ETHERSCAN_API_KEY` | No | For contract verification |
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Frontend `frontend/.env.local` (auto-generated by deploy script)
 
-## ⚠️ Disclaimer
+| Variable | Description |
+|----------|-------------|
+| `REACT_APP_CONTRACT_ADDRESS` | Crowdfunding contract address |
+| `REACT_APP_TOKEN_ADDRESS` | RECT token contract address |
+| `REACT_APP_NETWORK_ID` | `31337` (local) or `11155111` (Sepolia) |
+| `REACT_APP_NETWORK_NAME` | `localhost` or `sepolia` |
+| `REACT_APP_PINATA_JWT` | (Optional) Pinata JWT for IPFS uploads |
 
-This is a demonstration project. For production use, additional security audits and legal compliance should be implemented.
+## Frontend Pages
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Home | Landing page with platform stats and features |
+| `/properties` | Properties | Browse, search, and filter listed properties |
+| `/properties/:id` | Property Detail | View details, invest, or complete a property |
+| `/create-property` | Create Property | List a new property with image upload |
+| `/my-investments` | My Investments | Portfolio dashboard of your investments |
+| `/my-properties` | My Properties | Manage properties you've listed |
+
+## Backend API
+
+Base URL: `http://localhost:3001/api`
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/properties` | GET | List properties (query: `status`, `search`, `limit`, `offset`) |
+| `/properties/:id` | GET | Get property by ID |
+| `/investments/:address` | GET | Get investments for a wallet address |
+| `/user-properties/:address` | GET | Get properties owned by a wallet address |
+| `/stats` | GET | Platform statistics |
+| `/activities` | GET | Recent platform activities |
+
+## License
+
+MIT

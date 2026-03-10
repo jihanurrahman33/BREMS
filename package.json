@@ -3,19 +3,17 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "npx hardhat test",
-    "compile": "npx hardhat compile",
-    "deploy": "npx hardhat ignition deploy ./ignition/modules/RealEstateCrowdfunding.js --network localhost",
-    "node": "npx hardhat node",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
     "frontend": "cd frontend && npm start",
     "backend": "cd backend && npm start",
     "backend:dev": "cd backend && npm run dev",
     "build": "cd frontend && npm run build",
-    "install-frontend": "cd frontend && npm install",
-    "install-backend": "cd backend && npm install",
-    "install-all": "npm install && npm run install-frontend && npm run install-backend",
-    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend\"",
-    "setup": "node scripts/setup.js"
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend\""
   },
   "keywords": [
     "blockchain",

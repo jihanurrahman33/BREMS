@@ -90,7 +90,7 @@ const CreateProperty = () => {
       if (file) {
         ipfsHash = await uploadToIPFS(file);
       }
-      
+
       const propertyId = await createProperty({ ...formData, ipfsHash });
       navigate(`/properties/${propertyId}`);
     } catch (error) {
