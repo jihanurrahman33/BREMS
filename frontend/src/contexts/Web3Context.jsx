@@ -200,7 +200,12 @@ export const Web3Provider = ({ children }) => {
       toast.success("Investment successful!");
     } catch (error) {
       console.error("Error investing:", error);
-      toast.error("Failed to invest");
+      const reason =
+        error?.reason ||
+        error?.data?.message ||
+        error?.message?.match(/reason="([^"]+)"/)?.[1] ||
+        "Failed to invest";
+      toast.error(reason);
       throw error;
     } finally {
       setIsLoading(false);
@@ -320,7 +325,12 @@ export const Web3Provider = ({ children }) => {
       toast.success("Property cancelled. Investors can now claim refunds.");
     } catch (error) {
       console.error("Error cancelling property:", error);
-      toast.error("Failed to cancel property");
+      const reason =
+        error?.reason ||
+        error?.data?.message ||
+        error?.message?.match(/reason="([^"]+)"/)?.[1] ||
+        "Failed to cancel property";
+      toast.error(reason);
       throw error;
     } finally {
       setIsLoading(false);
@@ -337,7 +347,12 @@ export const Web3Provider = ({ children }) => {
       toast.success("Refund claimed successfully!");
     } catch (error) {
       console.error("Error claiming refund:", error);
-      toast.error("Failed to claim refund");
+      const reason =
+        error?.reason ||
+        error?.data?.message ||
+        error?.message?.match(/reason="([^"]+)"/)?.[1] ||
+        "Transaction failed";
+      toast.error(reason);
       throw error;
     } finally {
       setIsLoading(false);

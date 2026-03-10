@@ -135,6 +135,14 @@ describe("RealEstateCrowdfunding", function () {
       ).to.be.revertedWith("Investment amount exceeds maximum");
     });
 
+    it("Should prevent property owner from investing in own property", async function () {
+      await expect(
+        realEstateCrowdfunding
+          .connect(propertyOwner)
+          .invest(propertyId, { value: ethers.parseEther("10") }),
+      ).to.be.revertedWith("Owner cannot invest in own property");
+    });
+
     it("Should accumulate multiple investments from same investor", async function () {
       const amount1 = ethers.parseEther("10");
       const amount2 = ethers.parseEther("15");

@@ -124,6 +124,7 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
     function invest(uint256 _propertyId) external payable nonReentrant propertyExists(_propertyId) propertyActive(_propertyId) {
         Property storage property = properties[_propertyId];
         
+        require(msg.sender != property.owner, "Owner cannot invest in own property");
         require(block.timestamp < property.deadline, "Funding deadline has passed");
         require(msg.value >= property.minInvestment, "Investment amount is below minimum");
         require(msg.value <= property.maxInvestment, "Investment amount exceeds maximum");
