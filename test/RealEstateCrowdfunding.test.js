@@ -245,12 +245,200 @@ describe("RealEstateCrowdfunding", function () {
         .completeProperty(propertyId);
     });
 
-    it("Should fail withdrawal by non-investor", async function () {
+    it("Should not have withdrawInvestment anymore (replaced by claimRefund)", async function () {
+      expect(realEstateCrowdfunding.withdrawInvestment).to.be.undefined;
+    });
+  });
+
+  describe("Property Cancellation & Refunds", function () {
+    let propertyId;
+
+    beforeEach(async function () {
+      const result = await createTestProperty(propertyOwner);
+      propertyId = result.propertyId;
+    });
+
+    it("Should allow property owner to cancel before deadline", async function () {
+      const tx = await realEstateCrowdfunding
+        .connect(propertyOwner)
+        .cancelProperty(propertyId);
+      const receipt = await tx.wait();
+      const event = receipt.logs.find(
+        (log) => log.eventName === "PropertyCancelled",
+      );
+
+      expect(event.args.propertyId).to.equal(propertyId);
+
+      const property = await realEstateCrowdfunding.properties(propertyId);
+      expect(property.isCancelled).to.be.true;
+      expect(property.isActive).to.be.false;
+    });
+
+    it("Should prevent non-owner from cancelling before deadline", async function () {
+      await expect(
+        realEstateCrowdfunding.connect(investor1).cancelProperty(propertyId),
+      ).to.be.revertedWith("Only owner can cancel before deadline");
+    });
+
+    it("Should allow anyone to cancel after deadline has passed", async function () {
+      // Get the current block timestamp from the blockchain (not Date.now)
+      const block = await ethers.provider.getBlock("latest");
+      const { propertyId: shortId } = await createTestProperty(propertyOwner, {
+        deadline: block.timestamp + 60,
+      });
+
+      // Advance time past the deadline
+      await ethers.provider.send("evm_increaseTime", [120]);
+      await ethers.provider.send("evm_mine", []);
+
+      // Non-owner can cancel expired property
+      await expect(
+        realEstateCrowdfunding.connect(investor1).cancelProperty(shortId),
+      ).to.not.be.reverted;
+
+      const property = await realEstateCrowdfunding.properties(shortId);
+      expect(property.isCancelled).to.be.true;
+    });
+
+    it("Should prevent cancelling a funded property", async function () {
+      // Fund the property fully
+      await realEstateCrowdfunding
+        .connect(investor1)
+        .invest(propertyId, { value: ethers.parseEther("50") });
+
       await expect(
         realEstateCrowdfunding
-          .connect(investor2)
-          .withdrawInvestment(investmentId),
-      ).to.be.revertedWith("Only investor can withdraw");
+          .connect(propertyOwner)
+          .cancelProperty(propertyId),
+      ).to.be.revertedWith("Funded property cannot be cancelled");
+    });
+
+    it("Should prevent double cancellation", async function () {
+      await realEstateCrowdfunding
+        .connect(propertyOwner)
+        .cancelProperty(propertyId);
+
+      await expect(
+        realEstateCrowdfunding
+          .connect(propertyOwner)
+          .cancelProperty(propertyId),
+      ).to.be.revertedWith("Property is already cancelled");
+    });
+
+    it("Should allow investor to claim refund after cancellation", async function () {
+      const investAmount = ethers.parseEther("10");
+
+      // Invest
+      await realEstateCrowdfunding
+        .connect(investor1)
+        .invest(propertyId, { value: investAmount });
+
+      // Cancel
+      await realEstateCrowdfunding
+        .connect(propertyOwner)
+        .cancelProperty(propertyId);
+
+      // Claim refund
+      const balanceBefore = await ethers.provider.getBalance(investor1.address);
+
+      const tx = await realEstateCrowdfunding
+        .connect(investor1)
+        .claimRefund(propertyId);
+      const receipt = await tx.wait();
+
+      const refundEvent = receipt.logs.find(
+        (log) => log.eventName === "RefundClaimed",
+      );
+      expect(refundEvent.args.propertyId).to.equal(propertyId);
+      expect(refundEvent.args.investor).to.equal(investor1.address);
+      expect(refundEvent.args.amount).to.equal(investAmount);
+
+      const balanceAfter = await ethers.provider.getBalance(investor1.address);
+      // Balance should increase (minus gas)
+      expect(balanceAfter).to.be.gt(balanceBefore);
+    });
+
+    it("Should allow multiple investors to claim refunds independently", async function () {
+      // Two investors
+      await realEstateCrowdfunding
+        .connect(investor1)
+        .invest(propertyId, { value: ethers.parseEther("10") });
+      await realEstateCrowdfunding
+        .connect(investor2)
+        .invest(propertyId, { value: ethers.parseEther("15") });
+
+      // Cancel
+      await realEstateCrowdfunding
+        .connect(propertyOwner)
+        .cancelProperty(propertyId);
+
+      // Investor1 claims
+      await expect(
+        realEstateCrowdfunding.connect(investor1).claimRefund(propertyId),
+      ).to.not.be.reverted;
+
+      // Investor2 claims
+      await expect(
+        realEstateCrowdfunding.connect(investor2).claimRefund(propertyId),
+      ).to.not.be.reverted;
+    });
+
+    it("Should prevent double refund claim", async function () {
+      await realEstateCrowdfunding
+        .connect(investor1)
+        .invest(propertyId, { value: ethers.parseEther("10") });
+
+      await realEstateCrowdfunding
+        .connect(propertyOwner)
+        .cancelProperty(propertyId);
+
+      // First claim succeeds
+      await realEstateCrowdfunding.connect(investor1).claimRefund(propertyId);
+
+      // Second claim fails
+      await expect(
+        realEstateCrowdfunding.connect(investor1).claimRefund(propertyId),
+      ).to.be.revertedWith("No investment to refund");
+    });
+
+    it("Should prevent refund on non-cancelled property", async function () {
+      await realEstateCrowdfunding
+        .connect(investor1)
+        .invest(propertyId, { value: ethers.parseEther("10") });
+
+      await expect(
+        realEstateCrowdfunding.connect(investor1).claimRefund(propertyId),
+      ).to.be.revertedWith("Property must be cancelled for refund");
+    });
+
+    it("Should prevent refund if user has no investment", async function () {
+      await realEstateCrowdfunding
+        .connect(propertyOwner)
+        .cancelProperty(propertyId);
+
+      await expect(
+        realEstateCrowdfunding.connect(investor1).claimRefund(propertyId),
+      ).to.be.revertedWith("No investment to refund");
+    });
+
+    it("Should mark investment records as inactive after refund", async function () {
+      const tx = await realEstateCrowdfunding
+        .connect(investor1)
+        .invest(propertyId, { value: ethers.parseEther("10") });
+      const receipt = await tx.wait();
+      const event = receipt.logs.find(
+        (log) => log.eventName === "InvestmentMade",
+      );
+      const investmentId = event.args.investmentId;
+
+      await realEstateCrowdfunding
+        .connect(propertyOwner)
+        .cancelProperty(propertyId);
+
+      await realEstateCrowdfunding.connect(investor1).claimRefund(propertyId);
+
+      const investment = await realEstateCrowdfunding.investments(investmentId);
+      expect(investment.isActive).to.be.false;
     });
   });
 

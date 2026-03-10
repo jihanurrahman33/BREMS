@@ -49,11 +49,11 @@ const MyProperties = () => {
       // Calculate stats
       const totalValue = propertiesData.reduce(
         (sum, prop) => sum + parseFloat(prop.totalValue),
-        0
+        0,
       );
       const totalFunding = propertiesData.reduce(
         (sum, prop) => sum + parseFloat(prop.currentFunding),
-        0
+        0,
       );
 
       setStats({
@@ -69,16 +69,33 @@ const MyProperties = () => {
   };
 
   const getStatusBadge = (property) => {
+    const isExpired =
+      !property.isFunded &&
+      !property.isCompleted &&
+      !property.isCancelled &&
+      parseInt(property.deadline) * 1000 < Date.now();
     if (property.isCompleted) {
       return (
         <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
           Completed
         </span>
       );
+    } else if (property.isCancelled) {
+      return (
+        <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+          Cancelled
+        </span>
+      );
     } else if (property.isFunded) {
       return (
         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
           Funded
+        </span>
+      );
+    } else if (isExpired) {
+      return (
+        <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
+          Expired
         </span>
       );
     } else {
@@ -258,7 +275,7 @@ const MyProperties = () => {
                           style={{
                             width: `${Math.min(
                               getProgressPercentage(property),
-                              100
+                              100,
                             )}%`,
                           }}
                         ></div>

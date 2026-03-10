@@ -11,7 +11,13 @@ import {
 } from "lucide-react";
 
 const MyInvestments = () => {
-  const { isConnected, account, getUserInvestments, getProperty } = useWeb3();
+  const {
+    isConnected,
+    account,
+    getUserInvestments,
+    getInvestment,
+    getProperty,
+  } = useWeb3();
   const [investments, setInvestments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [portfolioStats, setPortfolioStats] = useState({
@@ -31,32 +37,42 @@ const MyInvestments = () => {
       setLoading(true);
       const investmentIds = await getUserInvestments();
 
-      // For now, we'll create mock investment data since we don't have the full investment details
-      // In a real implementation, you'd fetch investment details from the contract
-      const mockInvestments = investmentIds.map((id, index) => ({
-        id: id,
-        propertyId: Math.floor(Math.random() * 10) + 1, // Mock property ID
-        amount: (Math.random() * 10 + 1).toFixed(2), // Mock amount
-        timestamp: Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000, // Random date within 30 days
-        status: ["active", "completed", "pending"][
-          Math.floor(Math.random() * 3)
-        ],
-      }));
+      const investmentsData = [];
+      for (const id of investmentIds) {
+        try {
+          const inv = await getInvestment(id);
+          // Fetch property title for display
+          let propertyTitle = `Property #${inv.propertyId}`;
+          try {
+            const prop = await getProperty(inv.propertyId);
+            propertyTitle = prop.title;
+          } catch (e) {
+            // Fall back to generic title
+          }
+          investmentsData.push({
+            ...inv,
+            propertyTitle,
+            status: inv.isActive ? "active" : "completed",
+          });
+        } catch (error) {
+          console.error(`Error loading investment ${id}:`, error);
+        }
+      }
 
-      setInvestments(mockInvestments);
+      setInvestments(investmentsData);
 
       // Calculate portfolio stats
-      const totalInvested = mockInvestments.reduce(
+      const totalInvested = investmentsData.reduce(
         (sum, inv) => sum + parseFloat(inv.amount),
-        0
+        0,
       );
-      const activeInvestments = mockInvestments.filter(
-        (inv) => inv.status === "active"
+      const activeInvestments = investmentsData.filter(
+        (inv) => inv.status === "active",
       ).length;
 
       setPortfolioStats({
         totalInvested,
-        totalProperties: mockInvestments.length,
+        totalProperties: investmentsData.length,
         activeInvestments,
       });
     } catch (error) {

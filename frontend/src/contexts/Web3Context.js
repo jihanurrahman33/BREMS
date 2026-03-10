@@ -29,22 +29,25 @@ export const Web3Provider = ({ children }) => {
   const CONTRACT_ABI = [
     "function createProperty(string _title, string _description, string _ipfsHash, string _location, uint256 _totalValue, uint256 _minInvestment, uint256 _maxInvestment, uint256 _targetFunding, uint256 _deadline) external returns (uint256)",
     "function invest(uint256 _propertyId) external payable",
-    "function properties(uint256) external view returns (uint256 id, address owner, string title, string description, string ipfsHash, string location, uint256 totalValue, uint256 minInvestment, uint256 maxInvestment, uint256 currentFunding, uint256 targetFunding, uint256 deadline, bool isActive, bool isFunded, bool isCompleted, uint256 totalInvestors)",
+    "function properties(uint256) external view returns (uint256 id, address owner, string title, string description, string ipfsHash, string location, uint256 totalValue, uint256 minInvestment, uint256 maxInvestment, uint256 currentFunding, uint256 targetFunding, uint256 deadline, bool isActive, bool isFunded, bool isCompleted, bool isCancelled, uint256 totalInvestors)",
     "function getTotalProperties() external view returns (uint256)",
     "function getUserInvestments(address _user) external view returns (uint256[])",
     "function getUserProperties(address _user) external view returns (uint256[])",
     "function completeProperty(uint256 _propertyId) external",
-    "function withdrawInvestment(uint256 _investmentId) external",
+    "function cancelProperty(uint256 _propertyId) external",
+    "function claimRefund(uint256 _propertyId) external",
     "function getPropertyInvestors(uint256 _propertyId) external view returns (address[])",
     "function getUserInvestment(uint256 _propertyId, address _investor) external view returns (uint256)",
     "function getTotalInvestments() external view returns (uint256)",
+    "function investments(uint256) external view returns (uint256 id, uint256 propertyId, address investor, uint256 amount, uint256 timestamp, bool isActive)",
     "function withdrawPlatformFees() external",
     "function updatePlatformFee(uint256 _newFee) external",
     "event PropertyCreated(uint256 indexed propertyId, address indexed owner, string title, uint256 targetFunding)",
     "event InvestmentMade(uint256 indexed investmentId, uint256 indexed propertyId, address indexed investor, uint256 amount)",
     "event PropertyFunded(uint256 indexed propertyId, uint256 totalFunding)",
     "event PropertyCompleted(uint256 indexed propertyId, address indexed owner)",
-    "event InvestmentWithdrawn(uint256 indexed investmentId, address indexed investor, uint256 amount)",
+    "event PropertyCancelled(uint256 indexed propertyId)",
+    "event RefundClaimed(uint256 indexed propertyId, address indexed investor, uint256 amount)",
   ];
 
   const TOKEN_ABI = [
@@ -223,7 +226,8 @@ export const Web3Provider = ({ children }) => {
         isActive: property[12],
         isFunded: property[13],
         isCompleted: property[14],
-        totalInvestors: property[15].toString(),
+        isCancelled: property[15],
+        totalInvestors: property[16].toString(),
       };
     } catch (error) {
       console.error("Error getting property:", error);
@@ -262,6 +266,23 @@ export const Web3Provider = ({ children }) => {
     }
   };
 
+  const getInvestment = async (investmentId) => {
+    try {
+      const inv = await contract.investments(investmentId);
+      return {
+        id: inv[0].toString(),
+        propertyId: inv[1].toString(),
+        investor: inv[2],
+        amount: ethers.formatEther(inv[3]),
+        timestamp: inv[4].toString(),
+        isActive: inv[5],
+      };
+    } catch (error) {
+      console.error("Error getting investment:", error);
+      throw error;
+    }
+  };
+
   const getUserProperties = async (userAddress = account) => {
     try {
       const propertyIds = await contract.getUserProperties(userAddress);
@@ -283,6 +304,40 @@ export const Web3Provider = ({ children }) => {
     } catch (error) {
       console.error("Error completing property:", error);
       toast.error("Failed to complete property");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const cancelProperty = async (propertyId) => {
+    try {
+      setIsLoading(true);
+
+      const tx = await contract.cancelProperty(propertyId);
+      await tx.wait();
+
+      toast.success("Property cancelled. Investors can now claim refunds.");
+    } catch (error) {
+      console.error("Error cancelling property:", error);
+      toast.error("Failed to cancel property");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const claimRefund = async (propertyId) => {
+    try {
+      setIsLoading(true);
+
+      const tx = await contract.claimRefund(propertyId);
+      await tx.wait();
+
+      toast.success("Refund claimed successfully!");
+    } catch (error) {
+      console.error("Error claiming refund:", error);
+      toast.error("Failed to claim refund");
       throw error;
     } finally {
       setIsLoading(false);
@@ -331,8 +386,11 @@ export const Web3Provider = ({ children }) => {
     getProperty,
     getAllProperties,
     getUserInvestments,
+    getInvestment,
     getUserProperties,
     completeProperty,
+    cancelProperty,
+    claimRefund,
     getTokenBalance,
   };
 

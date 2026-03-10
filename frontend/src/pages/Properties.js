@@ -25,6 +25,7 @@ const Properties = () => {
   }, [isConnected]);
 
   const loadProperties = async () => {
+    if (!isConnected) return;
     try {
       setLoading(true);
       const allProperties = await getAllProperties();
@@ -52,20 +53,29 @@ const Properties = () => {
           property.description
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
-          property.location.toLowerCase().includes(searchTerm.toLowerCase())
+          property.location.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
 
     // Status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter((property) => {
+        const isExpired =
+          !property.isFunded &&
+          !property.isCompleted &&
+          !property.isCancelled &&
+          parseInt(property.deadline) * 1000 < Date.now();
         switch (statusFilter) {
           case "active":
-            return property.isActive && !property.isFunded;
+            return property.isActive && !property.isFunded && !isExpired;
           case "funded":
             return property.isFunded && !property.isCompleted;
           case "completed":
             return property.isCompleted;
+          case "cancelled":
+            return property.isCancelled;
+          case "expired":
+            return isExpired;
           default:
             return true;
         }
@@ -76,16 +86,33 @@ const Properties = () => {
   };
 
   const getStatusBadge = (property) => {
+    const isExpired =
+      !property.isFunded &&
+      !property.isCompleted &&
+      !property.isCancelled &&
+      parseInt(property.deadline) * 1000 < Date.now();
     if (property.isCompleted) {
       return (
         <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
           Completed
         </span>
       );
+    } else if (property.isCancelled) {
+      return (
+        <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+          Cancelled
+        </span>
+      );
     } else if (property.isFunded) {
       return (
         <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
           Funded
+        </span>
+      );
+    } else if (isExpired) {
+      return (
+        <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
+          Expired
         </span>
       );
     } else {
@@ -180,6 +207,8 @@ const Properties = () => {
               <option value="active">Active</option>
               <option value="funded">Funded</option>
               <option value="completed">Completed</option>
+              <option value="expired">Expired</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
         </div>
@@ -262,7 +291,7 @@ const Properties = () => {
                       style={{
                         width: `${Math.min(
                           getProgressPercentage(property),
-                          100
+                          100,
                         )}%`,
                       }}
                     ></div>

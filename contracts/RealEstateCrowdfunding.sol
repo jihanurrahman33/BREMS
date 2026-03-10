@@ -28,6 +28,7 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
         bool isActive;
         bool isFunded;
         bool isCompleted;
+        bool isCancelled;
         uint256 totalInvestors;
         mapping(address => uint256) investments;
         address[] investors;
@@ -56,7 +57,8 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
     event InvestmentMade(uint256 indexed investmentId, uint256 indexed propertyId, address indexed investor, uint256 amount);
     event PropertyFunded(uint256 indexed propertyId, uint256 totalFunding);
     event PropertyCompleted(uint256 indexed propertyId, address indexed owner);
-    event InvestmentWithdrawn(uint256 indexed investmentId, address indexed investor, uint256 amount);
+    event PropertyCancelled(uint256 indexed propertyId);
+    event RefundClaimed(uint256 indexed propertyId, address indexed investor, uint256 amount);
     event TokenRewardPaid(address indexed investor, uint256 amount);
     
     modifier propertyExists(uint256 _propertyId) {
@@ -109,6 +111,7 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
         newProperty.isActive = true;
         newProperty.isFunded = false;
         newProperty.isCompleted = false;
+        newProperty.isCancelled = false;
         newProperty.currentFunding = 0;
         newProperty.totalInvestors = 0;
         
@@ -183,29 +186,45 @@ contract RealEstateCrowdfunding is ReentrancyGuard, Ownable {
         emit PropertyCompleted(_propertyId, property.owner);
     }
     
-    function withdrawInvestment(uint256 _investmentId) external nonReentrant {
-        Investment storage investment = investments[_investmentId];
-        require(investment.investor == msg.sender, "Only investor can withdraw");
-        require(investment.isActive, "Investment is not active");
+    function cancelProperty(uint256 _propertyId) external propertyExists(_propertyId) {
+        Property storage property = properties[_propertyId];
+        require(!property.isFunded, "Funded property cannot be cancelled");
+        require(!property.isCompleted, "Completed property cannot be cancelled");
+        require(!property.isCancelled, "Property is already cancelled");
+        require(
+            block.timestamp >= property.deadline || property.owner == msg.sender,
+            "Only owner can cancel before deadline"
+        );
         
-        Property storage property = properties[investment.propertyId];
-        require(property.isCompleted, "Property must be completed to withdraw");
+        property.isCancelled = true;
+        property.isActive = false;
         
-        uint256 userInvestment = property.investments[msg.sender];
-        require(userInvestment > 0, "No investment to withdraw");
-        
-        // Calculate return based on property performance (simplified)
-        uint256 returnAmount = userInvestment; // In a real scenario, this would include profits/losses
-        
-        property.investments[msg.sender] = 0;
-        investment.isActive = false;
-        
-        payable(msg.sender).transfer(returnAmount);
-        
-        emit InvestmentWithdrawn(_investmentId, msg.sender, returnAmount);
+        emit PropertyCancelled(_propertyId);
     }
     
-
+    function claimRefund(uint256 _propertyId) external nonReentrant propertyExists(_propertyId) {
+        Property storage property = properties[_propertyId];
+        require(property.isCancelled, "Property must be cancelled for refund");
+        
+        uint256 investedAmount = property.investments[msg.sender];
+        require(investedAmount > 0, "No investment to refund");
+        
+        // Zero out before transfer (reentrancy protection)
+        property.investments[msg.sender] = 0;
+        
+        // Mark all investment records for this user/property as inactive
+        uint256[] storage userInvs = userInvestments[msg.sender];
+        for (uint256 i = 0; i < userInvs.length; i++) {
+            Investment storage inv = investments[userInvs[i]];
+            if (inv.propertyId == _propertyId && inv.isActive) {
+                inv.isActive = false;
+            }
+        }
+        
+        payable(msg.sender).transfer(investedAmount);
+        
+        emit RefundClaimed(_propertyId, msg.sender, investedAmount);
+    }
     
     function getPropertyInvestors(uint256 _propertyId) external view propertyExists(_propertyId) returns (address[] memory) {
         return properties[_propertyId].investors;

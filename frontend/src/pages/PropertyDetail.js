@@ -12,6 +12,8 @@ import {
   CheckCircle,
   Clock,
   XCircle,
+  AlertTriangle,
+  RotateCcw,
 } from "lucide-react";
 
 const PropertyDetail = () => {
@@ -22,12 +24,16 @@ const PropertyDetail = () => {
     getProperty,
     investInProperty,
     completeProperty,
+    cancelProperty,
+    claimRefund,
+    contract,
     isLoading,
   } = useWeb3();
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [investmentAmount, setInvestmentAmount] = useState("");
   const [showInvestmentModal, setShowInvestmentModal] = useState(false);
+  const [userInvestment, setUserInvestment] = useState("0");
 
   useEffect(() => {
     if (isConnected && id) {
@@ -40,6 +46,16 @@ const PropertyDetail = () => {
       setLoading(true);
       const propertyData = await getProperty(id);
       setProperty(propertyData);
+      // Fetch user's investment in this property
+      if (account && contract) {
+        try {
+          const inv = await contract.getUserInvestment(id, account);
+          const { ethers } = await import("ethers");
+          setUserInvestment(ethers.formatEther(inv));
+        } catch (e) {
+          setUserInvestment("0");
+        }
+      }
     } catch (error) {
       console.error("Error loading property:", error);
     } finally {
@@ -67,9 +83,27 @@ const PropertyDetail = () => {
   const handleCompleteProperty = async () => {
     try {
       await completeProperty(id);
-      loadProperty(); // Reload property data
+      loadProperty();
     } catch (error) {
       console.error("Error completing property:", error);
+    }
+  };
+
+  const handleCancelProperty = async () => {
+    try {
+      await cancelProperty(id);
+      loadProperty();
+    } catch (error) {
+      console.error("Error cancelling property:", error);
+    }
+  };
+
+  const handleClaimRefund = async () => {
+    try {
+      await claimRefund(id);
+      loadProperty();
+    } catch (error) {
+      console.error("Error claiming refund:", error);
     }
   };
 
@@ -85,8 +119,12 @@ const PropertyDetail = () => {
   const getStatusIcon = () => {
     if (property.isCompleted) {
       return <CheckCircle className="h-5 w-5 text-green-600" />;
+    } else if (property.isCancelled) {
+      return <XCircle className="h-5 w-5 text-red-600" />;
     } else if (property.isFunded) {
       return <Clock className="h-5 w-5 text-blue-600" />;
+    } else if (isExpired) {
+      return <AlertTriangle className="h-5 w-5 text-orange-600" />;
     } else {
       return <Clock className="h-5 w-5 text-yellow-600" />;
     }
@@ -95,8 +133,12 @@ const PropertyDetail = () => {
   const getStatusText = () => {
     if (property.isCompleted) {
       return "Completed";
+    } else if (property.isCancelled) {
+      return "Cancelled";
     } else if (property.isFunded) {
       return "Funded";
+    } else if (isExpired) {
+      return "Expired";
     } else {
       return "Active";
     }
@@ -105,8 +147,12 @@ const PropertyDetail = () => {
   const getStatusColor = () => {
     if (property.isCompleted) {
       return "bg-green-100 text-green-800";
+    } else if (property.isCancelled) {
+      return "bg-red-100 text-red-800";
     } else if (property.isFunded) {
       return "bg-blue-100 text-blue-800";
+    } else if (isExpired) {
+      return "bg-orange-100 text-orange-800";
     } else {
       return "bg-yellow-100 text-yellow-800";
     }
@@ -120,9 +166,28 @@ const PropertyDetail = () => {
     property &&
     account &&
     property.owner.toLowerCase() === account.toLowerCase();
-  const canInvest = property && property.isActive && !property.isFunded;
+  const isExpired =
+    property &&
+    !property.isFunded &&
+    !property.isCompleted &&
+    !property.isCancelled &&
+    parseInt(property.deadline) * 1000 < Date.now();
+  const canInvest =
+    property &&
+    property.isActive &&
+    !property.isFunded &&
+    !property.isCancelled &&
+    !isExpired;
   const canComplete =
     property && property.isFunded && !property.isCompleted && isOwner;
+  const canCancel =
+    property &&
+    !property.isFunded &&
+    !property.isCompleted &&
+    !property.isCancelled &&
+    (isOwner || isExpired);
+  const canClaimRefund =
+    property && property.isCancelled && parseFloat(userInvestment) > 0;
 
   if (!isConnected) {
     return (
@@ -187,7 +252,8 @@ const PropertyDetail = () => {
                 className="w-full h-64 object-cover rounded-lg shadow-md"
                 onError={(e) => {
                   e.target.onerror = null;
-                  e.target.src = "https://via.placeholder.com/400x300?text=No+Image";
+                  e.target.src =
+                    "https://via.placeholder.com/400x300?text=No+Image";
                 }}
               />
             ) : (
@@ -264,7 +330,66 @@ const PropertyDetail = () => {
                   <span>Complete Property</span>
                 </button>
               )}
+
+              {canCancel && (
+                <button
+                  onClick={handleCancelProperty}
+                  className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-colors"
+                  disabled={isLoading}
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>
+                    {isExpired ? "Cancel Expired Property" : "Cancel Property"}
+                  </span>
+                </button>
+              )}
+
+              {canClaimRefund && (
+                <button
+                  onClick={handleClaimRefund}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-colors"
+                  disabled={isLoading}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Claim Refund ({userInvestment} ETH)</span>
+                </button>
+              )}
             </div>
+
+            {/* Expired / Cancelled Notice */}
+            {isExpired && !property.isCancelled && (
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-orange-800">
+                      Funding Deadline Expired
+                    </p>
+                    <p className="text-sm text-orange-700">
+                      This property did not reach its funding target before the
+                      deadline. Cancel the property to enable investor refunds.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {property.isCancelled && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-red-800">
+                      Property Cancelled
+                    </p>
+                    <p className="text-sm text-red-700">
+                      This property has been cancelled. Investors can claim full
+                      refunds of their contributions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -375,7 +500,11 @@ const PropertyDetail = () => {
                   <div className="mt-2 p-3 bg-blue-50 rounded-md border border-blue-100">
                     <p className="text-sm text-blue-800 flex items-center">
                       <DollarSign className="h-4 w-4 mr-1" />
-                      Estimated Reward: <span className="font-bold ml-1">{(parseFloat(investmentAmount) * 1000).toLocaleString()} RECT</span>
+                      Estimated Reward:{" "}
+                      <span className="font-bold ml-1">
+                        {(parseFloat(investmentAmount) * 1000).toLocaleString()}{" "}
+                        RECT
+                      </span>
                     </p>
                   </div>
                 )}
